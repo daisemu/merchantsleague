@@ -3,6 +3,7 @@
 #include <fstream>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_net.h>
+#include <ctime>
 
 using namespace std;
 
@@ -15,6 +16,8 @@ char floating[] =
 string key = "a6:d3:f7:s1";
 
 int main(int argc, char* argv[]) {
+    time_t t;
+    struct tm *tm;
 
     const long req_size = 256;
     char request[req_size];
@@ -53,8 +56,8 @@ int main(int argc, char* argv[]) {
                 }
             }
             else if (instr == "login") {
-                string user, password;
-                string check_pass, check_login;
+                string user = "", password = "";
+                string check_pass = "", check_login = "";
                 ios >> user >> password;
                 ifstream fin(("users/" + user + "/profile").c_str());
                 if (!fin.is_open()) {
@@ -70,13 +73,13 @@ int main(int argc, char* argv[]) {
                 }
             }
             else if (instr == "signup") {
-                string user, password;
+                string user = "", password = "";
                 ios >> user >> password;
                 ifstream fin(("users/" + user + "/profile").c_str());
                 if (!fin.is_open()) {
                     system(("mkdir users/" + user).c_str());
                     ofstream fout(("users/" + user + "/profile").c_str());
-                    fout << user << " " << password << " 0";
+                    fout << user << " " << password;
                     fout.close();
                     fout.open(("users/" + user + "/mail").c_str());
                     fout << "***";
@@ -91,10 +94,10 @@ int main(int argc, char* argv[]) {
                 }
             }
             else if (instr == "pay") {
-                string fromn,fromp,ton;
-                long long howm,tmp,tmp2;
+                string fromn = "",fromp = "",ton = "";
+                long long howm = 0,tmp = 0,tmp2 = 0;
                 ios >> fromn >> fromp >> ton >> howm;
-                string chn,chp;
+                string chn = "",chp = "";
 
                 ifstream fin(("users/" + fromn + "/profile").c_str());
                 if (!fin.is_open()) {
@@ -119,7 +122,15 @@ int main(int argc, char* argv[]) {
                                 fout.open(("users/" + ton + "/money").c_str());
                                 fout << (tmp + howm);
                                 fout.close();
+                                fout.open(("users/" + ton + "/mail").c_str(),ios::app);
+                                fout << endl << "# " << fromn << " pay you " << howm  << " gold." << endl;
+                                fout.close();
                                 answer(client, "@ok");
+                                fout.open("transactions",ios::app);
+                                t = time(NULL);
+                                tm = localtime(&t);
+                                fout << " [ " << tm->tm_hour << ":" << tm->tm_min << ":" << tm->tm_sec << " ] " << fromn << " -> " << ton << " : " << howm << endl;
+                                fout.close();
                             }
                             else {
                                 answer(client, "@rj-nm");
@@ -131,34 +142,85 @@ int main(int argc, char* argv[]) {
                     }
                 }
             }
-            else if (instr == "msg"){
-                string from,to,msg;
-                ios >> from >> to;
-                getline(ios,msg);
-                ifstream fin(("users/" + to + "/mail").c_str());
+            else if (instr == "bill"){
+                string from = "",to = "",howm = "0",fromp = "",chu = "",chp = "";
+                ios >> from >> to >> howm;
+
+                ifstream fin(("users/" + to + "/profile").c_str());
                 if (!fin.is_open()) {
                     answer(client, "@rj-nu");
                 } else {
+                    fin >> chu >> chp;
                     fin.close();
+                    if(fromp == chp && from == chu){
+                        fin.open(("users/" + to + "/mail").c_str());
+                        if (!fin.is_open()) {
+                            answer(client, "@rj-nu");
+                        } else {
+                            fin.close();
+                        }
+                        ofstream fout(("users/" + to + "/mail").c_str(),ios::app);
+                        fout << endl << "# " << from << " bill you for payment (" << howm << " gold)." << endl;
+                        fout.close();
+                        answer(client, "@ok");
+                    }
+                    else {
+                        answer(client,"@rj-wp");
+                    }
                 }
-                ofstream fout(("users/" + to + "/mail").c_str(),ios::app);
-                fout << endl << "from " << from << ": " << msg << endl;
-                fout.close();
-                answer(client, "@ok");
+            }
+            else if (instr == "msg"){
+                string from = "",to = "",msg = "",fromp = "",chp = "",chu = "";
+                ios >> from >> fromp >> to;
+                getline(ios,msg);
+                ifstream fin(("users/" + from + "/profile").c_str());
+                if (!fin.is_open()) {
+                    answer(client, "@rj-nu");
+                } else {
+                    fin >> chu >> chp;
+                    fin.close();
+                    if(fromp == chp && from == chu){
+                        fin.open(("users/" + to + "/mail").c_str());
+                        if (!fin.is_open()) {
+                            answer(client, "@rj-nu");
+                        } else {
+                            fin.close();
+                        }
+                        ofstream fout(("users/" + to + "/mail").c_str(),ios::app);
+                        fout << endl << "from " << from << ": " << msg << endl;
+                        fout.close();
+                        answer(client, "@ok");
+                    }
+                    else {
+                        answer(client, "@rj-wp");
+                    }
+                }
             }
             else if (instr == "mail"){
-                string mail = "",user;
-                ios >> user;
-                ifstream fin(("users/" + user + "/mail").c_str());
-                while(!fin.eof()) {
-                    mail += fin.get();
-                } 
-                mail[mail.length() - 1] = '\0';
-                fin.close();
-                answer(client,mail.c_str());
-                ofstream fout(("users/" + user + "/mail").c_str());
-                fout << "***";
-                fout.close();
+                string mail = "",user = "",password = "",chp = "",chu = "";
+                ios >> user >> password;
+                ifstream fin(("users/" + user + "/profile").c_str());
+                if (!fin.is_open()) {
+                    answer(client, "@rj-nu");
+                } else {
+                    fin >> chu >> chp;
+                    fin.close();
+                    if(chu == user && chp == password){
+                        fin.open(("users/" + user + "/mail").c_str());
+                        while(!fin.eof()) {
+                            mail += fin.get();
+                        } 
+                        mail[mail.length() - 1] = '\0';
+                        fin.close();
+                        answer(client,mail.c_str());
+                        ofstream fout(("users/" + user + "/mail").c_str());
+                        fout << "***";
+                        fout.close();
+                    }
+                    else {
+                        answer(client,"@rj-wp");
+                    }
+                }
             }
             else if (instr == "news"){
                 string news = "";
